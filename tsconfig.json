@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "module": "esnext",
+    "target": "es5",
+    "lib": [
+      "es2017",
+      "es6",
+      "dom"
+    ],
+    "jsx": "preserve",
+    "moduleResolution": "node",
+    "declaration": true,
+    "rootDir": "./src",
+    "sourceMap": true
+  },
+  "exclude": [
+    "node_modules"
+  ],
+  "include": [
+    "src/lightwallet-provider.ts"
+  ]
+}
