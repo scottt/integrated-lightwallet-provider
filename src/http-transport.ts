@@ -21,8 +21,20 @@ export class HttpTransport extends EventEmitter {
     this.connected = false;
     this.status = 'loading';
     this.url = url;
-    //this.pollId = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed';
     setTimeout(() => this.create(), 0);
+  }
+  init () {
+    this._send({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }, (err, _) => {
+      if (err) {
+        return this.emit('error', err);
+      }
+      this.connected = true;
+      this.emit('connect');
+    });
+  }
+  create () {
+    this.on('error', () => { if (this.connected) { this.close(); } });
+    this.init();
   }
   close () {
     if (verboseLogging) {
@@ -31,10 +43,6 @@ export class HttpTransport extends EventEmitter {
     this.closed = true;
     this.emit('close');
     this.removeAllListeners();
-  }
-  create () {
-    this.on('error', () => { if (this.connected) { this.close(); } });
-    this.init();
   }
   error (payload, message, code = -1) {
     this.emit('payload', { id: payload.id, jsonrpc: payload.jsonrpc, error: { message, code } })
@@ -78,7 +86,7 @@ export class HttpTransport extends EventEmitter {
       headers: {
         'Content-Type': 'application/json',
       },
-      //signal: fetchAbort.signal,
+      signal: fetchAbort.signal,
       body: requestBody,
     }).then((response) => {
       response.json().then((responseJson) => {
@@ -93,38 +101,4 @@ export class HttpTransport extends EventEmitter {
   send (payload) {
     this._send(payload, undefined);
   }
-  init () {
-    this._send({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }, (err, _) => {
-      if (err) {
-        return this.emit('error', err);
-      }
-      this.connected = true;
-      this.emit('connect');
-    });
-  }
-  /* filterStatus (res) {
-    if (res.status >= 200 && res.status < 300) return res
-    let error = new HttpTransportError(res.statusText)
-    error.res = res
-    throw error.message
-  } */
-  /* pollSubscriptions () {
-    this.send({ jsonrpc: '2.0', id: 1, method: 'eth_pollSubscriptions', params: [this.pollId] }, (err, result) => {
-      if (err) {
-        this.subscriptionTimeout = setTimeout(() => this.pollSubscriptions(), 10000)
-        return this.emit('error', err)
-      } else {
-        if (!this.closed) this.subscriptionTimeout = this.pollSubscriptions()
-        if (result) {
-          result.map(p => {
-            let parse
-            try { parse = JSON.parse(p) } catch (e) { parse = false }
-            return parse
-          }).filter(n => n).forEach(p => this.emit('payload', p))
-        }
-      }
-    })
-  } */
 }
-
-window['HttpTransport'] = HttpTransport;

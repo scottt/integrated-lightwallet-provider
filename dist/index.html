@@ -17,6 +17,7 @@ const onLoad = (async () => {
 		// const provider = new HDWalletProvider(privateKeys, 'https://mainnet-rpc.thundercore.com', 0 /* key index */, privateKeys.length);
 		const provider = new LightWalletProvider((new Web3()).eth.accounts, privateKeys, 'https://mainnet-rpc.thundercore.com', 0 /* key index */, privateKeys.length);
 		const web3 = new Web3(provider);
+		window['web3'] = web3;
 		web3.eth.transactionConfirmationBlocks = 1;
 		web3.eth.transactionPollingTimeout = 1.0;
 		const account = web3.eth.accounts.privateKeyToAccount(privateKey);

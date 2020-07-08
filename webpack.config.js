@@ -5,7 +5,7 @@ module.exports = {
     extensions: ['.ts', '.js', '.json']
   },
   entry: {
-    'lightwallet-provider': './src/lightwallet-provider.ts',
+    'lightwallet-provider': './src/lightwallet-provider-export-to-window.ts',
   },
   module: {
     rules: [
@@ -17,14 +17,14 @@ module.exports = {
     ],
   },
   optimization: {
-    minimize: false
+    minimize: true,
   },
   output: {
     // If path is missing, it's default value is './'
     path: path.resolve('./'),
     filename: path.join('dist', '[name].js'),
   },
-  /*externals: {
+  externals: {
     web3: 'Web3',
-  },*/
+  },
 };
