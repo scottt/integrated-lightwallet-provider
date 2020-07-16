@@ -2,25 +2,25 @@ import { EventEmitter } from './event-emitter'
 
 const verboseLogging = true
 
-export class HttpTransportError extends Error {
-  res: Response
-}
-
 export class HttpTransport extends EventEmitter {
   fetch: any
+  abortControllerCtor: any
   connected: boolean
   closed: boolean
   status: string
   url: string
   pollId: string
+  options: any
 
-  constructor (fetchFunc, url, options) {
+  constructor (fetchFunc, abortControllerCtor, url, options) {
     super();
     this.fetch = fetchFunc;
+    this.abortControllerCtor = abortControllerCtor;
     this.closed = false;
     this.connected = false;
     this.status = 'loading';
     this.url = url;
+    this.options = options;
     setTimeout(() => this.create(), 0);
   }
   init () {
@@ -54,7 +54,7 @@ export class HttpTransport extends EventEmitter {
     if (payload.method === 'eth_subscribe') {
       return this.error(payload, 'Subscriptions are not supported by this Http endpoint');
     }
-    const fetchAbort = new AbortController();
+    const fetchAbort = new this.abortControllerCtor();
     let sendCallProcessed = false;
     const sendCallback = (err, result) => {
       if (sendCallProcessed) {
@@ -81,14 +81,18 @@ export class HttpTransport extends EventEmitter {
       sendCallback(err, undefined);
     }
     const fetch = this.fetch;
-    fetch(this.url, {
+    const fetchOptions: any = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       signal: fetchAbort.signal,
       body: requestBody,
-    }).then((response) => {
+    };
+    if (this.options['httpAcceptCookies']) {
+      fetchOptions['credentials'] = 'include';
+    }
+    fetch(this.url, fetchOptions).then((response) => {
       response.json().then((responseJson) => {
         sendCallback(responseJson.error, responseJson.result);
       }).catch((err) => {

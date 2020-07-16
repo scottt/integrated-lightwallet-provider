@@ -1,4 +1,5 @@
 import { HttpTransport } from './http-transport';
+import { WebSocketTransport } from './websocket-transport';
 
 import { Account } from 'web3-core';
 import { Accounts } from 'web3-eth-accounts';
@@ -13,7 +14,7 @@ export class LightWalletProvider {
   connected: boolean
   nextId: number
   requestToExecutor: Record<any, IExecutor>
-  transport: HttpTransport
+  transport: HttpTransport|WebSocketTransport
   accounts: Account[]
   account: Account
   chainIdPromise: Promise<number>
@@ -22,7 +23,7 @@ export class LightWalletProvider {
 
   // Provide constructor API similar to HDWalletProvider when using private keys
   // https://github.com/trufflesuite/truffle/tree/develop/packages/hdwallet-provider
-  constructor (web3AccountsInstance: Accounts, privateKeys: string[], rpcUrl: string, addressIndex: number, numAddresses: number) {
+  constructor (fetch: any, abortControllerCtor: any, web3AccountsInstance: Accounts, options: any, privateKeys: string[], rpcUrl: string, addressIndex: number, numAddresses: number) {
     this.connected = false;
     this.chainIdPromise = new Promise((resolve, reject) => {
       this.chainIdPromiseResolve = resolve;
@@ -30,7 +31,11 @@ export class LightWalletProvider {
     });
     this.nextId = 0;
     this.requestToExecutor = {};
-    this.transport = new HttpTransport(window.fetch, rpcUrl, {} /* options */);
+    if (rpcUrl.startsWith('http')) {
+      this.transport = new HttpTransport(fetch, abortControllerCtor, rpcUrl, options);
+    } else {
+      this.transport = new WebSocketTransport(WebSocket, rpcUrl, options);
+    }
     this.transport.on('connect', () => this.fetchChainId());
     this.transport.on('payload', payload => {
       const { id, method, error, result } = payload;
@@ -46,6 +51,8 @@ export class LightWalletProvider {
       }
     });
     const enabledKeys = privateKeys.slice(addressIndex, addressIndex + numAddresses);
+    //console.log('LightWalletProvider.ctor: fetch:', fetch, ', abortControllerCtor:', abortControllerCtor, ', web3AccountsInstance:',
+    //web3AccountsInstance, ', options:', options, privateKeys, rpcUrl, addressIndex, numAddresses)
     this.accounts = enabledKeys.map((sk) => web3AccountsInstance.privateKeyToAccount(sk));
     this.account = this.accounts[0];
   }
@@ -74,7 +81,7 @@ export class LightWalletProvider {
     return this.enable();
   }
   sendToTransport(method, params): Promise<any> {
-    console.log(`LightWalletProvider.sendToTransport: method: "${method}", params: "${JSON.stringify(params)}`);
+    console.log(`LightWalletProvider.sendToTransport: method: "${method}", params: "${JSON.stringify(params)}"`);
     return new Promise((resolve, reject) => {
       const payload = { jsonrpc: '2.0', id: this.nextId++, method, params };
       this.requestToExecutor[payload.id] = { resolve, reject };
@@ -90,9 +97,14 @@ export class LightWalletProvider {
     })
   }
   _eth_sendTransaction(tx): Promise<string> {
-    return this.chainIdPromise.then((chainId) => {
+    return this.chainIdPromise.then(async (chainId) => {
       tx['chainId'] = chainId;
+      if (!tx['nonce']) {
+        tx['nonce'] = await this.sendToTransport('eth_getTransactionCount', [this.account.address, 'pending'])
+      }
+
       try {
+        console.log('_eth_sendTransaction: this.account:', this.account);
         return this.account.signTransaction(tx).then((signedTx) => {
           console.log('signedTx:', signedTx);
           const method = 'eth_sendRawTransaction';
@@ -107,7 +119,7 @@ export class LightWalletProvider {
     });
   }
   _send(method, params = []): Promise<any> {
-    console.log(`LightWalletProvider._send: method: "${method}", params: "${JSON.stringify(params)}`);
+    console.log(`LightWalletProvider._send: method: "${method}", params: "${JSON.stringify(params)}"`);
     if (method === 'eth_sendTransaction') {
       const tx = params[0];
       return this._eth_sendTransaction(tx);
